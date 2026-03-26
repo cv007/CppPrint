@@ -1,49 +1,13 @@
                 #pragma once
 
-
-                //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                #if 0 //comment
-                //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-                a C++ cout style of formatting, mainly intended for microcontrollers (with
-                an available C++ compiler) as an alternate formatting method to printf
-                
-                no external libraries are required, and we will also assume there is no
-                C++ standard library available
-                
-                C++17 (or greater) will be required, so a compiler option such as 
-                -std=c++17 will be required
-
-                the FMT::Print class can be inherited by any class, and the only 
-                requirement is the class has to provide a write function that takes a 
-                const char and returns a bool- the class can do as it wishes with the
-                char (a char of formatted output from Print) and returns true or false
-                which the Print class simply uses to advance a counter, or not, so the
-                number of chars that are output can be made available if needed
-
-                a simple example for x64-86 (compiled as 32bit using -m32), where the
-                result can be executed and the output seen in action-
-                https://godbolt.org/z/Wf9P3qG46
-
-                the online example simply simulated a uart by using the stdio putchar
-                function to output the char to the x64-86 stdout so the output can be
-                viewed in the online compiler, but for a microcontroller the write
-                function would instead write that char to a uart data register
-
-                //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;                    
-                #endif //end comment
-                //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-                    
-                #include <stdint.h> 
+                #include <stdint.h> //avr does not have <cstdint>
 
 //========================================================================================
 namespace
 FMT             
 //========================================================================================
                 {
-
-                //these types will stay in the FMT namespace
+                
                 //we may already have these in the global namespace
                 //but if not we will create them here for our use in the FMT namespace
                 //(duplicates are ok if the type names refer to the same types)
@@ -516,11 +480,18 @@ cdup            (const char c, const u16 n) { return {c,n}; }
                 operator<< (Print& p, Setdup s) { return p << setwf(s.n,s.c) << ""; }
 
 
-                //NOTE- for all these hex,dec,bin functions we need a template specialization
-                //for char's so that a char gets cast to a u8 since a char normally goes
-                //directly to output and we instead want the char value, so we cast to u8
-                //   without specialization- Hex0x(2,'0'); -> direct char output-> 0
-                //   with    specialization- Hex0x(2,'0'); -> u8 value 0x30 -> 0x30
+                // generic padding helper-
+                // PadBase -->  n = total width, v = value, c = padding char, b = base
+
+                template<typename T> struct PadBase { const u8 n; const T v; const char c; FMT::BASE b; };
+                template<typename T> inline PadBase<const T> 
+padBase_        (const u8 n, const T v, const char c, FMT::BASE b) { return {n,v,c,b}; }
+                template<typename T> inline Print&
+                operator<< (Print& p, PadBase<const T> s) { return p << nouppercase << s.b << internal << setwf(s.n,s.c) << s.v; }
+                template<> inline Print& //type is char (we need to cast to u8 so is treated as a value instead of direct output char)
+                operator<< (Print& p, PadBase<const char> s) { return p << padBase_( s.n, static_cast<u8>(s.v), s.c, s.b ); }
+
+                //now using the above helper padBase_ for hex/dec/bin functions
 
                 // << hex_(8,0x1a)  -->>       1a
                 // (hex_  -  the _ designates space padding)
@@ -528,9 +499,7 @@ cdup            (const char c, const u16 n) { return {c,n}; }
                 template<typename T> inline Padh_<const T> 
 hex_            (const u8 n, const T v) { return {n,v}; }
                 template<typename T> inline Print&
-                operator<< (Print& p, Padh_<const T> s) { return p << hex << nouppercase << noshowbase << internal << setwf(s.n,' ') << s.v; }
-                template<> inline Print& //char
-                operator<< (Print& p, Padh_<const char> s) { return p << Padh_<const u8>{ s.n, static_cast<u8>(s.v) }; }
+                operator<< (Print& p, Padh_<const T> s) { return p << nouppercase << noshowbase << padBase_(s.n, s.v, ' ', hex); }
 
                 // << hex0(8,0x1a)  -->> 0000001a
                 // (hex0  - the 0 designates 0 padding)
@@ -538,9 +507,7 @@ hex_            (const u8 n, const T v) { return {n,v}; }
                 template<typename T> inline Padh0<const T> 
 hex0            (const u8 n, const T v) { return {n,v}; }
                 template<typename T> inline Print&
-                operator<< (Print& p, Padh0<const T> s) { return p << hex << nouppercase << noshowbase << internal << setwf(s.n,'0') << s.v; }
-                template<> inline Print& //char
-                operator<< (Print& p, Padh0<const char> s) { return p << Padh0<const u8>{ s.n, static_cast<u8>(s.v) }; }
+                operator<< (Print& p, Padh0<const T> s) { return p << nouppercase << noshowbase << padBase_(s.n, s.v, '0', hex); }
 
                 // << Hex0(8,0x1a)  -->> 0000001A
                 // (Hex0  - the uppercase H designates uppercase, the 0 designates 0 padding)
@@ -548,9 +515,7 @@ hex0            (const u8 n, const T v) { return {n,v}; }
                 template<typename T> inline PadH0<const T> 
 Hex0            (const u8 n, const T v) { return {n,v}; }
                 template<typename T> inline Print&
-                operator<< (Print& p, PadH0<const T> s) { return p << hex << uppercase << noshowbase << internal << setwf(s.n,'0') << s.v; }
-                template<> inline Print& //char
-                operator<< (Print& p, PadH0<const char> s) { return p << PadH0<const u8>{ s.n, static_cast<u8>(s.v) }; }
+                operator<< (Print& p, PadH0<const T> s) { return p << uppercase << noshowbase << padBase_(s.n, s.v, '0', hex); }
 
                 // << hex0x(8,0x1a)  -->> 0x0000001a
                 // (hex0x  - the 0 designates 0 padding, the x designates a leading 0x)
@@ -558,9 +523,7 @@ Hex0            (const u8 n, const T v) { return {n,v}; }
                 template<typename T> inline Padh0x<const T> 
 hex0x           (const u8 n, const T v) { return {n,v}; }
                 template<typename T> inline Print&
-                operator<< (Print& p, Padh0x<const T> s) { return p << hex << nouppercase << showbase << internal << setwf(s.n,'0') << s.v; }
-                template<> inline Print& //char
-                operator<< (Print& p, Padh0x<const char> s) { return p << Padh0x<const u8>{ s.n, static_cast<u8>(s.v) }; }
+                operator<< (Print& p, Padh0x<const T> s) { return p << nouppercase << showbase << padBase_( s.n, s.v, '0', hex ); }
 
                 // << Hex0x(8,0x1a) -->> 0x0000001A
                 // (Hex0x  - the H designates uppercase, the 0 designates 0 padding, the x designates a leading 0x)
@@ -568,9 +531,47 @@ hex0x           (const u8 n, const T v) { return {n,v}; }
                 template<typename T> inline PadH0x<const T> 
 Hex0x           (const u8 n, const T v) { return {n,v}; }
                 template<typename T> inline Print&
-                operator<< (Print& p, PadH0x<const T> s) { return p << hex << uppercase << showbase << internal << setwf(s.n,'0') << s.v; }
-                template<> inline Print& //char
-                operator<< (Print& p, PadH0x<const char> s) { return p << PadH0x<const u8>{ s.n, static_cast<u8>(s.v) }; }
+                operator<< (Print& p, PadH0x<const T> s) { return p << uppercase << showbase << padBase_( s.n, s.v, '0', hex ); }
+
+                // << dec_(8,123)  -->>      123
+                // (dec_  -  the _ designates space padding)
+                template<typename T> struct PadD_ { const u8 n; const T v; };
+                template<typename T> inline PadD_<const T> 
+dec_            (const u8 n, const T v) { return {n,v}; }
+                template<typename T> inline Print&
+                operator<< (Print& p, PadD_<const T> s) { return p << padBase_( s.n, s.v, ' ', dec ); }
+
+                // << dec0(8,123)  -->> 00000123
+                // (dec0  -  the 0 designates 0 padding)
+                template<typename T> struct PadD0 { const u8 n; const T v; };
+                template<typename T> inline PadD0<const T> 
+dec0            (const u8 n, const T v) { return {n,v}; }
+                template<typename T> inline Print&
+                operator<< (Print& p, PadD0<const T> s) { return p << padBase_( s.n, s.v, '0', dec ); }
+
+                // << bin_(8,123)  -->>  1111011
+                // (bin_  -  the _ designates space padding)
+                template<typename T> struct PadB_ { const u8 n; const T v; };
+                template<typename T> inline PadB_<const T> 
+bin_            (const u8 n, const T v) { return {n,v}; }
+                template<typename T> inline Print&
+                operator<< (Print& p, PadB_<const T> s) { return p << noshowbase << padBase_( s.n, s.v, ' ', bin ); }
+
+                // << bin0(8,123)  -->> 01111011
+                // (bin0  -  the 0 designates 0 padding)
+                template<typename T> struct PadB0 { const u8 n; const T v; };
+                template<typename T> inline PadB0<const T> 
+bin0            (const u8 n, const T v) { return {n,v}; }
+                template<typename T> inline Print&
+                operator<< (Print& p, PadB0<const T> s) { return p << noshowbase << padBase_( s.n, s.v, '0', bin ); }
+
+                // << bin0b(8,123)  -->> 0b01111011
+                // (bin0b  - the 0 designates 0 padding, the b designates a leading 0b)
+                template<typename T> struct PadB0b { const u8 n; const T v; };
+                template<typename T> inline PadB0b<const T> 
+bin0b           (const u8 n, const T v) { return {n,v}; }
+                template<typename T> inline Print&
+                operator<< (Print& p, PadB0b<const T> s) { return p << showbase << padBase_( s.n, s.v, '0', bin ); }
 
                 // << strHex("123")  -->> 313233
                 // string to hex values
@@ -580,7 +581,7 @@ Hex0x           (const u8 n, const T v) { return {n,v}; }
                 //      strHex("123","\0_")     -->> 313233_ 
                 struct StrHex { const char* str; const char* braces; };
                 inline StrHex
-strHex          (const char* str, const char* braces = "\0\0"){ return {str,braces}; }
+strToHex        (const char* str, const char* braces = "\0\0"){ return {str,braces}; }
                 inline Print&
                 operator << (Print& p, StrHex s){
                     if( s.braces[0] ) p << s.braces[0];
@@ -589,57 +590,6 @@ strHex          (const char* str, const char* braces = "\0\0"){ return {str,brac
                         }
                     return s.braces[1] ? p << s.braces[1] : p;
                     }
-
-                // << dec_(8,123)  -->>      123
-                // (dec_  -  the _ designates space padding)
-                template<typename T> struct PadD_ { const u8 n; const T v; };
-                template<typename T> inline PadD_<const T> 
-dec_            (const u8 n, const T v) { return {n,v}; }
-                template<typename T> inline Print&
-                operator<< (Print& p, PadD_<const T> s) { return p << dec << internal << setwf(s.n,' ') << s.v; }
-                template<> inline Print& //char
-                operator<< (Print& p, PadD_<const char> s) { return p << PadD_<const u8>{ s.n, static_cast<u8>(s.v) }; }
-
-                // << dec0(8,123)  -->> 00000123
-                // (dec0  -  the 0 designates 0 padding)
-                template<typename T> struct PadD0 { const u8 n; const T v; };
-                template<typename T> inline PadD0<const T> 
-dec0            (const u8 n, const T v) { return {n,v}; }
-                template<typename T> inline Print&
-                operator<< (Print& p, PadD0<const T> s) { return p << dec << internal << setwf(s.n,'0') << s.v; }
-                template<> inline Print& //char
-                operator<< (Print& p, PadD0<const char> s) { return p << PadD0<const u8>{ s.n, static_cast<u8>(s.v) }; }
-
-                // << bin_(8,123)  -->>  1111011
-                // (bin_  -  the _ designates space padding)
-                template<typename T> struct PadB_ { const u8 n; const T v; };
-                template<typename T> inline PadB_<const T> 
-bin_            (const u8 n, const T v) { return {n,v}; }
-                template<typename T> inline Print&
-                operator<< (Print& p, PadB_<const T> s) { return p << bin << noshowbase << internal << setwf(s.n,' ') << s.v << dec; }
-                template<> inline Print& //char
-                operator<< (Print& p, PadB_<const char> s) { return p << PadB_<const u8>{ s.n, static_cast<u8>(s.v) }; }
-
-                // << bin0(8,123)  -->> 01111011
-                // (bin0  -  the 0 designates 0 padding)
-                template<typename T> struct PadB0 { const u8 n; const T v; };
-                template<typename T> inline PadB0<const T> 
-bin0            (const u8 n, const T v) { return {n,v}; }
-                template<typename T> inline Print&
-                operator<< (Print& p, PadB0<const T> s) { return p << bin << noshowbase << internal << setwf(s.n,'0') << s.v << dec; }
-                template<> inline Print& //char
-                operator<< (Print& p, PadB0<const char> s) { return p << PadB0<const u8>{ s.n, static_cast<u8>(s.v) }; }
-
-                // << bin0b(8,123)  -->> 0b01111011
-                // (bin0b  - the 0 designates 0 padding, the b designates a leading 0b)
-                template<typename T> struct PadB0b { const u8 n; const T v; };
-                template<typename T> inline PadB0b<const T> 
-bin0b           (const u8 n, const T v) { return {n,v}; }
-                template<typename T> inline Print&
-                operator<< (Print& p, PadB0b<const T> s) { return p << bin << showbase << internal << setwf(s.n,'0') << s.v << dec; }
-                template<> inline Print& //char
-                operator<< (Print& p, PadB0b<const char> s) { return p << PadB0b<const u8>{ s.n, static_cast<u8>(s.v) }; }
-
 
                 // << space -->> ' '
                 enum Space { 
