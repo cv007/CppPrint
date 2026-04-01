@@ -1,5 +1,10 @@
                 #pragma once
 
+                // simple example in online compiler for x86-64 (32bit), where output
+                // can be viewed in the online compiler-
+                // https://godbolt.org/z/a1x1934on
+                // you can experiment with the usage in the online compiler
+
                 #include <stdint.h> //avr does not have <cstdint>
 
 //========================================================================================
