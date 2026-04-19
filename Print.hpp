@@ -119,7 +119,7 @@ print           (const char* str, u16 n)
                 if( pad <= 0 or just_ == left ) wr();           //print str first
                 if( pad > 0 ){                                  //padding needed?
                     while( pad-- > 0 ) write_( fill_ );         //print any needed padding
-                    if( just_ == right ) wr();                  //and print sv if was not done already
+                    if( just_ == right ) wr();                  //and print str if was not done already
                     }
                 return *this;
                 }
@@ -135,7 +135,7 @@ print           (const unsigned long v)
                 static constexpr char charTableUC[]{ "0123456789ABCDEF" };
                 static constexpr char charTableLC[]{ "0123456789abcdef" };
                 static constexpr u8 BUFSZ{ 32+2 };              //0bx...x-> 32+2 digits max (no 0 termination needed as we use str+strsiz)
-                char buf[BUFSZ];                                //will be used as a string_view
+                char buf[BUFSZ];                                //will be used as a string, with no 0 termination
                 u8 idx = BUFSZ;                                 //start past end, so pre-decrement bufidx
                 const char* ctbl{ uppercase_ ? charTableUC : charTableLC }; //use uppercase or lowercase char table
                 auto u = v;                                     //make copy to use (v is const)
